@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Potensi Bahaya Longsor</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+    crossorigin=""/>
+
+    <link rel="stylesheet" href="js/leaflet-panel-layers-master/src/leaflet-panel-layers.css" />
+
+    <style type="text/css">
+
+    #mapid { height: 100vh; }
+
+    .info { padding: 6px 8px; font: 14px/16px Arial, Helvetica, sans-serif; background: white; background: rgba(255,255,255,0.8); box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 5px; } .info h4 { margin: 0 0 5px; color: #777; }
+    .legend { text-align: left; line-height: 18px; color: #555; } .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.7; }
+
+    </style>
+</head>
+<body>
+    <div id="mapid"></div>
+</body>
+ <!-- Make sure you put this AFTER Leaflet's CSS -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+
+<script src="js/leaflet-panel-layers-master/src/leaflet-panel-layers.js"></script>  
+<script src="js/leaflet.ajax.js"></script>
+
+<script type="text/javascript">
+
+    var map = L.map('mapid').setView([-7.735490, 110.372551], 11);
+
+    var LayerKita = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox/streets-v11',
+    tileSize: 512,
+    zoomOffset: -1,
+    accessToken: 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'
+});
+    map.addLayer(LayerKita);
+
+    // control that shows state info on hover
+    var info = L.control();
+
+    info.onAdd = function (map) {
+        this._div = L.DomUtil.create('div', 'info');
+        this.update();
+        return this._div;
+    };
+
+    info.update = function (props) {
+        this._div.innerHTML = '<h4>Potensi Bahaya Longsor di Kabupaten Sleman</h4>' +  (props ?
+            '<b>' + props.WADMKC + '</b><br />' + props.Potensi + ' <br />'+ props.LUAS_ha + ' ha '
+            : 'Hover over a state');
+    };
+
+    info.addTo(map);
+
+    // get color depending on population density value
+	function getColor(d) {
+		return d > 3   ? '#FC4E2A' :
+				d > 2   ? '#FD8D3C' :
+				d > 1   ? '#FEB24C' :
+				d > 0   ? '#FED976' :
+							'#FFEDA0';
+	}
+
+    function style(feature) {
+		return {
+			weight: 2,
+			opacity: 1,
+			color: 'white',
+			dashArray: '3',
+			fillOpacity: 0.7,
+			fillColor: getColor(feature.properties.KELAS)
+		};
+	}
+
+    function highlightFeature(e) {
+		var layer = e.target;
+
+		layer.setStyle({
+			weight: 5,
+			color: '#666',
+			dashArray: '',
+			fillOpacity: 0.7
+		});
+
+		if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+			layer.bringToFront();
+		}
+
+		info.update(layer.feature.properties);
+	}
+
+    var geojson;
+
+	function resetHighlight(e) {
+        var layer = e.target;
+
+		layer.setStyle({
+			weight: 2,
+			opacity: 1,
+			color: 'white',
+			dashArray: '3'
+		});
+		info.update();
+	}
+
+	function zoomToFeature(e) {
+		map.fitBounds(e.target.getBounds());
+	}
+
+	function onEachFeature(feature, layer) {
+		layer.on({
+			mouseover: highlightFeature,
+			mouseout: resetHighlight,
+			click: zoomToFeature
+		});
+	}
+
+    var legend = L.control({position: 'bottomright'});
+
+	legend.onAdd = function (map) {
+
+		var div = L.DomUtil.create('div', 'info legend'),
+			grades = [0, 1, 2, 3],
+			labels = [],
+			from, to;
+
+		for (var i = 0; i < grades.length; i++) {
+			from = grades[i];
+			to = grades[i + 1];
+
+			labels.push(
+				'<i style="background:' + getColor(from + 1) + '"></i> ' +
+				from + (to ? '&ndash;' + to : '+'));
+		}
+
+		div.innerHTML = labels.join('<br>');
+		return div;
+	};
+
+	legend.addTo(map);
+
+
+    //peta tematik
+    var myStyle = {
+        "color": "#ff7800",
+        "weight": 1,
+        "opacity": 0.65
+    };
+
+    function popUp(f,l){
+        var out = [];
+        if (f.properties){
+            //for(key in f.properties){
+            //console.log(key);
+
+            // }
+                out.push("Kecamatan: "+f.properties['WADMKC']);
+            
+            l.bindPopup(out.join("<br />"));
+        }
+    }
+
+
+    //legend
+
+
+    function iconByName(name) {
+        return '<i class="icon icon-'+name+'"></i>';
+    }
+
+    function featureToMarker(feature, latlng) {
+        return L.marker(latlng, {
+            icon: L.divIcon({
+                className: 'marker-'+feature.properties.amenity,
+                html: iconByName(feature.properties.amenity),
+                iconUrl: '../images/markers/'+feature.properties.amenity+'.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            })
+        });
+    }
+
+    var baseLayers = [
+        {
+            name: "BaseMap",
+            layer: LayerKita
+        }
+        
+    ];
+
+    var overLayers = [
+        {
+            name: "Kecamatan",
+            icon: iconByName('bar'),
+            layer: new L.GeoJSON.AJAX(["geojson/potensilongsor.geojson"],{
+                style: style,
+                onEachFeature: onEachFeature
+                }).addTo(map)           
+        }
+ 
+    ];
+
+    var panelLayers = new L.Control.PanelLayers(baseLayers, overLayers);
+
+    map.addControl(panelLayers);
+
+</script>
+</html>
